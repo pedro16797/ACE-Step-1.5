@@ -334,8 +334,8 @@ if "%CURRENT_COMMIT%"=="%REMOTE_COMMIT%" (
 
                     if /i "!CONFLICT_CHOICE!"=="Y" (
                         echo.
-                        echo [Restore] Restoring conflicting files to remote version...
-                        echo [Restore] Files will be updated to remote version. Proceeding with update...
+                        echo [Restore] Proceeding with update...
+                        echo [Restore] Files will be updated to remote version.
                     ) else (
                         echo.
                         echo Update cancelled.
@@ -370,7 +370,7 @@ if "%CURRENT_COMMIT%"=="%REMOTE_COMMIT%" (
 
             REM Pull changes
             echo Pulling latest changes...
-            REM Use reset --hard to force update and avoid merge conflicts
+            REM Force update by resetting to remote branch (discards any remaining local changes)
             "!GIT_PATH!" reset --hard origin/%CURRENT_BRANCH% >nul 2>&1
 
             if !ERRORLEVEL! EQU 0 (
