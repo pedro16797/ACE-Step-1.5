@@ -99,6 +99,9 @@ class AceStepHandler:
         self._load_progress_estimates()
         self.last_init_params = None
         
+        # Quantization state (set during initialize_service)
+        self.quantization = None
+        
         # LoRA state
         self.lora_loaded = False
         self.use_lora = False
@@ -167,6 +170,15 @@ class AceStepHandler:
         """
         if self.model is None:
             return "❌ Model not initialized. Please initialize service first."
+        
+        # Check if model is quantized - LoRA loading on quantized models is not supported
+        # due to incompatibility between PEFT and torchao (missing get_apply_tensor_subclass argument)
+        if hasattr(self, 'quantization') and self.quantization is not None:
+            return (
+                f"❌ LoRA loading is not supported on quantized models. "
+                f"Current quantization: {self.quantization}. "
+                "Please re-initialize the service with quantization disabled (set 'INT8 Quantization' to 'None' in the UI), then try loading the LoRA adapter again."
+            )
         
         if not lora_path or not lora_path.strip():
             return "❌ Please provide a LoRA path."
