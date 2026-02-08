@@ -36,6 +36,9 @@ dependencies = [
     "torchcodec>=0.9.1",
     "torchao",
     "toml",
+    # MLX dependencies (Apple Silicon native acceleration - macOS only)
+    "mlx>=0.25.2; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "mlx-lm>=0.20.0; sys_platform == 'darwin' and platform_machine == 'arm64'",
     # Training dependencies
     "peft>=0.7.0",
     "lightning>=2.0.0",

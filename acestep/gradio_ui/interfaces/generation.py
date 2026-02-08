@@ -129,7 +129,7 @@ def create_generation_section(dit_handler, llm_handler, init_params=None, langua
                 # Set backend value from init_params if pre-initialized
                 backend_value = init_params.get('backend', 'vllm') if service_pre_initialized else 'vllm'
                 backend_dropdown = gr.Dropdown(
-                    choices=["vllm", "pt"],
+                    choices=["vllm", "pt", "mlx"],
                     value=backend_value,
                     label=t("service.backend_label"),
                     info=t("service.backend_info")

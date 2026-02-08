@@ -508,7 +508,7 @@ class GenerateMusicRequest(BaseModel):
 
     # 5Hz LM (server-side): used for metadata completion and (when thinking=True) codes generation.
     lm_model_path: Optional[str] = None  # e.g. "acestep-5Hz-lm-0.6B"
-    lm_backend: Literal["vllm", "pt"] = "vllm"
+    lm_backend: Literal["vllm", "pt", "mlx"] = "vllm"
 
     constrained_decoding: bool = True
     constrained_decoding_debug: bool = False
@@ -1202,7 +1202,7 @@ def create_app() -> FastAPI:
                         checkpoint_dir = os.path.join(project_root, "checkpoints")
                         lm_model_path = (req.lm_model_path or os.getenv("ACESTEP_LM_MODEL_PATH") or "acestep-5Hz-lm-0.6B").strip()
                         backend = (req.lm_backend or os.getenv("ACESTEP_LM_BACKEND") or "vllm").strip().lower()
-                        if backend not in {"vllm", "pt"}:
+                        if backend not in {"vllm", "pt", "mlx"}:
                             backend = "vllm"
 
                         # Auto-download LM model if not present
@@ -1911,7 +1911,7 @@ def create_app() -> FastAPI:
 
         if init_llm:
             lm_backend = os.getenv("ACESTEP_LM_BACKEND", "vllm").strip().lower()
-            if lm_backend not in {"vllm", "pt"}:
+            if lm_backend not in {"vllm", "pt", "mlx"}:
                 lm_backend = "vllm"
             lm_device = os.getenv("ACESTEP_LM_DEVICE", device)
 
@@ -2397,7 +2397,7 @@ def create_app() -> FastAPI:
                 checkpoint_dir = os.path.join(project_root, "checkpoints")
                 lm_model_path = os.getenv("ACESTEP_LM_MODEL_PATH", "acestep-5Hz-lm-0.6B").strip()
                 backend = os.getenv("ACESTEP_LM_BACKEND", "vllm").strip().lower()
-                if backend not in {"vllm", "pt"}:
+                if backend not in {"vllm", "pt", "mlx"}:
                     backend = "vllm"
 
                 # Auto-download LM model if not present
