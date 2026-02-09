@@ -764,17 +764,16 @@ class AceStepHandler:
         """
         if visited is None:
             visited = set()
-        
         module_id = id(module)
         if module_id in visited:
             return
         visited.add(module_id)
-        
+
         if not skip_quantized:
             module.to(target_device)
             if dtype is not None:
                 module.to(dtype)
-        
+
         for param_name, param in module._parameters.items():
             if param is None:
                 continue
@@ -784,7 +783,7 @@ class AceStepHandler:
                 module._parameters[param_name] = param.to(target_device)
                 if dtype is not None:
                     module._parameters[param_name] = module._parameters[param_name].to(dtype)
-        
+
         for buf_name, buf in module._buffers.items():
             if buf is None:
                 continue
@@ -792,11 +791,11 @@ class AceStepHandler:
                 continue
             if not self._is_on_target_device(buf, target_device):
                 module._buffers[buf_name] = buf.to(target_device)
-        
+
         for name, child in module._modules.items():
             if child is not None:
                 self._move_module_recursive(child, target_device, dtype, visited, skip_quantized)
-        
+
         for attr_name in dir(module):
             if attr_name.startswith('_'):
                 continue
