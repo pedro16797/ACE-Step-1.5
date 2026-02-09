@@ -17,6 +17,9 @@
 
 - [✨ Features](#-features)
 - [📦 Installation](#-installation)
+  - [🪟 Windows Portable Package](#-windows-portable-package-recommended-for-windows)
+  - [🚀 Launch Scripts](#-launch-scripts) (Windows / Linux / macOS)
+  - [Standard Installation](#standard-installation-all-platforms)
 - [📥 Model Download](#-model-download)
 - [🚀 Usage](#-usage)
 - [📖 Tutorial](#-tutorial)
@@ -169,138 +172,233 @@ For Windows users, we provide a portable package with pre-installed dependencies
 2. The package includes `python_embeded` with all dependencies pre-installed
 3. **Requirements:** CUDA 12.8
 
-#### 🚀 Quick Start Scripts
+The portable package auto-detects the environment:
+1. `python_embeded\python.exe` (if exists)
+2. `uv run acestep` (if uv is installed)
+3. Auto-install uv via winget or PowerShell
 
-The portable package includes convenient batch scripts for easy operation:
+#### 📦 Portable Git Support
+
+If you include a `PortableGit/` folder in your portable package, you can enable auto-update from GitHub before startup. Set `CHECK_UPDATE=true` in the launch scripts. When your modified files conflict with remote updates:
+- Files are automatically backed up to `.update_backup_YYYYMMDD_HHMMSS/`
+- Use `merge_config.bat` (Windows) or `merge_config.sh` (Linux/macOS) to compare and merge changes
+
+---
+
+### 🚀 Launch Scripts
+
+We provide ready-to-use launch scripts for all platforms. These scripts handle environment detection, dependency installation, and application startup automatically. All scripts check for updates on startup by default (configurable).
+
+#### 🪟 Windows
 
 | Script | Description | Usage |
 |--------|-------------|-------|
-| **start_gradio_ui.bat** | Launch Gradio Web UI | Double-click or run from terminal |
-| **start_api_server.bat** | Launch REST API Server | Double-click or run from terminal |
-
-**Basic Usage:**
+| **start_gradio_ui.bat** | Launch Gradio Web UI (CUDA) | Double-click or run from terminal |
+| **start_api_server.bat** | Launch REST API Server (CUDA) | Double-click or run from terminal |
+| **start_gradio_ui_rocm.bat** | Launch Gradio Web UI (AMD ROCm) | For AMD RX 7000/6000 series GPUs |
 
 ```bash
-# Launch Gradio Web UI (Recommended)
+# Launch Gradio Web UI (NVIDIA CUDA)
 start_gradio_ui.bat
 
-# Launch REST API Server
+# Launch REST API Server (NVIDIA CUDA)
 start_api_server.bat
+
+# Launch Gradio Web UI (AMD ROCm)
+start_gradio_ui_rocm.bat
 ```
 
-Both scripts support:
-- ✅ Auto environment detection (`python_embeded` or `uv`)
-- ✅ Auto install `uv` if needed (via winget or PowerShell)
-- ✅ Configurable download source (HuggingFace/ModelScope)
-- ✅ Optional Git update check before startup
-- ✅ Customizable , models, and parameters
+> **ROCm users:** `start_gradio_ui_rocm.bat` auto-sets `HSA_OVERRIDE_GFX_VERSION`, `ACESTEP_LM_BACKEND=pt`, `MIOPEN_FIND_MODE=FAST` and other ROCm-specific environment variables. It uses a separate `venv_rocm` virtual environment to avoid CUDA/ROCm wheel conflicts. See [AMD / ROCm GPUs](#amd--rocm-gpus) for setup details.
 
-#### 📝 Configuration
+#### 🐧 Linux
 
-Edit the scripts to customize settings:
+| Script | Description | Usage |
+|--------|-------------|-------|
+| **start_gradio_ui.sh** | Launch Gradio Web UI (CUDA) | `./start_gradio_ui.sh` |
+| **start_api_server.sh** | Launch REST API Server (CUDA) | `./start_api_server.sh` |
 
-**start_gradio_ui.bat:**
+```bash
+# Make executable (first time only)
+chmod +x start_gradio_ui.sh start_api_server.sh
+
+# Launch Gradio Web UI
+./start_gradio_ui.sh
+
+# Launch REST API Server
+./start_api_server.sh
+```
+
+> **Note:** Linux does not have a portable Git package like Windows. Git must be installed via your system package manager (`sudo apt install git`, `sudo yum install git`, `sudo pacman -S git`).
+
+#### 🍎 macOS (Apple Silicon / MLX)
+
+macOS scripts use the **MLX backend** for native Apple Silicon acceleration (M1/M2/M3/M4).
+
+| Script | Description | Usage |
+|--------|-------------|-------|
+| **start_gradio_ui_macos.sh** | Launch Gradio Web UI (MLX) | `./start_gradio_ui_macos.sh` |
+| **start_api_server_macos.sh** | Launch REST API Server (MLX) | `./start_api_server_macos.sh` |
+
+```bash
+# Make executable (first time only)
+chmod +x start_gradio_ui_macos.sh start_api_server_macos.sh
+
+# Launch Gradio Web UI with MLX backend
+./start_gradio_ui_macos.sh
+
+# Launch REST API Server with MLX backend
+./start_api_server_macos.sh
+```
+
+The macOS scripts automatically:
+- Set `ACESTEP_LM_BACKEND=mlx` and `--backend mlx` for native Apple Silicon acceleration
+- Detect architecture and fall back to PyTorch backend on non-arm64 machines
+
+> **Note:** macOS does not have a portable Git package. Install git via `xcode-select --install` or `brew install git`.
+
+#### All Launch Scripts Support
+
+- Startup update check (enabled by default, configurable)
+- Auto environment detection (portable Python or uv)
+- Auto install `uv` if needed
+- Configurable download source (HuggingFace/ModelScope)
+- Customizable models and parameters
+
+#### 📝 How to Modify Configuration
+
+All configurable options are defined as variables at the top of each script. To customize, open the script with a text editor and modify the variable values.
+
+**Example: Change UI language to Chinese and use the 1.7B LM model**
+
+<table>
+<tr><th>Windows (.bat)</th><th>Linux / macOS (.sh)</th></tr>
+<tr><td>
+
+Find these lines in `start_gradio_ui.bat`:
 ```batch
-REM UI language (en, zh, he, ja)
+set LANGUAGE=en
+set LM_MODEL_PATH=--lm_model_path acestep-5Hz-lm-0.6B
+```
+Change to:
+```batch
 set LANGUAGE=zh
-
-REM Download source (auto, huggingface, modelscope)
-set DOWNLOAD_SOURCE=--download-source modelscope
-
-REM Git update check (true/false) - requires PortableGit
-set CHECK_UPDATE=true
-
-REM Model configuration
-set CONFIG_PATH=--config_path acestep-v15-turbo
 set LM_MODEL_PATH=--lm_model_path acestep-5Hz-lm-1.7B
-
-REM LLM initialization (auto/true/false)
-REM Auto: enabled if VRAM > 6GB, disabled otherwise
-REM set INIT_LLM=--init_llm true   # Force enable (may cause OOM on low VRAM)
-REM set INIT_LLM=--init_llm false  # Force disable (DiT-only mode)
 ```
 
-**start_api_server.bat:**
+</td><td>
+
+Find these lines in `start_gradio_ui.sh`:
+```bash
+LANGUAGE="en"
+LM_MODEL_PATH="--lm_model_path acestep-5Hz-lm-0.6B"
+```
+Change to:
+```bash
+LANGUAGE="zh"
+LM_MODEL_PATH="--lm_model_path acestep-5Hz-lm-1.7B"
+```
+
+</td></tr>
+</table>
+
+**Example: Disable startup update check**
+
+<table>
+<tr><th>Windows (.bat)</th><th>Linux / macOS (.sh)</th></tr>
+<tr><td>
+
 ```batch
-REM LLM initialization via environment variable
-REM set ACESTEP_INIT_LLM=true   # Force enable LLM
-REM set ACESTEP_INIT_LLM=false  # Force disable LLM (DiT-only mode)
-
-REM LM model path (optional)
-REM set LM_MODEL_PATH=--lm-model-path acestep-5Hz-lm-0.6B
+REM set CHECK_UPDATE=true
+set CHECK_UPDATE=false
 ```
+
+</td><td>
+
+```bash
+# CHECK_UPDATE="true"
+CHECK_UPDATE="false"
+```
+
+</td></tr>
+</table>
+
+**Example: Enable a commented-out option** — remove the comment prefix (`REM` for .bat, `#` for .sh):
+
+<table>
+<tr><th>Windows (.bat)</th><th>Linux / macOS (.sh)</th></tr>
+<tr><td>
+
+Before:
+```batch
+REM set SHARE=--share
+```
+After:
+```batch
+set SHARE=--share
+```
+
+</td><td>
+
+Before:
+```bash
+# SHARE="--share"
+```
+After:
+```bash
+SHARE="--share"
+```
+
+</td></tr>
+</table>
+
+**Common configurable options:**
+
+| Option | Gradio UI | API Server | Description |
+|--------|:---------:|:----------:|-------------|
+| `LANGUAGE` | ✅ | — | UI language: `en`, `zh`, `he`, `ja` |
+| `PORT` | ✅ | ✅ | Server port (default: 7860 / 8001) |
+| `SERVER_NAME` / `HOST` | ✅ | ✅ | Bind address (`127.0.0.1` or `0.0.0.0`) |
+| `CHECK_UPDATE` | ✅ | ✅ | Startup update check (`true` / `false`) |
+| `CONFIG_PATH` | ✅ | — | DiT model (`acestep-v15-turbo`, etc.) |
+| `LM_MODEL_PATH` | ✅ | ✅ | LM model (`acestep-5Hz-lm-0.6B` / `1.7B` / `4B`) |
+| `DOWNLOAD_SOURCE` | ✅ | ✅ | Download source (`huggingface` / `modelscope`) |
+| `SHARE` | ✅ | — | Create public Gradio link |
+| `INIT_LLM` | ✅ | — | Force LLM on/off (`true` / `false` / `auto`) |
+| `OFFLOAD_TO_CPU` | ✅ | — | CPU offload for low-VRAM GPUs |
 
 #### 🔄 Update & Maintenance Tools
 
-| Script | Purpose | When to Use |
-|--------|---------|-------------|
-| **check_update.bat** | Check and update from GitHub | When you want to update to the latest version |
-| **merge_config.bat** | Merge backed-up configurations | After updating when config conflicts occur |
-| **install_uv.bat** | Install uv package manager | If uv installation failed during startup |
-| **quick_test.bat** | Test environment setup | To verify your environment is working |
-| **test_git_update.bat** | Test Git update functionality | To verify PortableGit is working correctly |
+| Script (Windows) | Script (Linux/macOS) | Purpose |
+|-------------------|----------------------|---------|
+| check_update.bat | check_update.sh | Check and update from GitHub |
+| merge_config.bat | merge_config.sh | Merge backed-up configurations after update |
+| install_uv.bat | install_uv.sh | Install uv package manager |
+| quick_test.bat | quick_test.sh | Test environment setup |
+| test_git_update.bat | test_git_update.sh | Test Git update functionality |
+| test_env_detection.bat | test_env_detection.sh | Test environment auto-detection |
 
 **Update Workflow:**
 
 ```bash
-# 1. Check for updates (requires PortableGit/)
-check_update.bat
-
-# 2. If conflicts occur, your changes are backed up automatically
-# 3. After update, merge your settings back
-merge_config.bat
-
-# Options:
-# - Compare backup with current files (side-by-side in Notepad)
-# - Restore files from backup
-# - List all backed-up files
-# - Delete old backups
+# Windows                          # Linux / macOS
+check_update.bat                    ./check_update.sh
+merge_config.bat                    ./merge_config.sh
 ```
 
 **Environment Testing:**
 
 ```bash
-# Test your setup
-quick_test.bat
-
-# This checks:
-# - Python installation (python_embeded or system Python)
-# - uv installation and PATH
-# - GPU availability (CUDA/ROCm)
-# - Basic imports
+# Windows                          # Linux / macOS
+quick_test.bat                      ./quick_test.sh
 ```
 
-#### 📦 Portable Git Support
-
-If you have `PortableGit/` folder in your package, you can:
-
-1. **Enable Auto-Updates:** Edit `start_gradio_ui.bat` or `start_api_server.bat`
-   ```batch
-   set CHECK_UPDATE=true
-   ```
-
-2. **Manual Update Check:**
-   ```bash
-   check_update.bat
-   ```
-
-3. **Conflict Handling:** When your modified files conflict with GitHub updates:
-   - Files are automatically backed up to `.update_backup_YYYYMMDD_HHMMSS/`
-   - Use `merge_config.bat` to compare and merge changes
-   - Supports all file types: `.bat`, `.py`, `.yaml`, `.json`, etc.
-
 **Update Features:**
-- ⏱️ 10-second timeout protection (won't block startup if GitHub is unreachable)
-- 💾 Smart conflict detection and backup
-- 🔄 Automatic rollback on failure
-- 📁 Preserves directory structure in backups
+- 10-second timeout protection (won't block startup if GitHub is unreachable)
+- Smart conflict detection and automatic backup
+- Automatic rollback on failure
+- Preserves directory structure in backups
 
 #### 🛠️ Advanced Options
-
-**Environment Detection Priority:**
-1. `python_embeded\python.exe` (if exists)
-2. `uv run acestep` (if uv is installed)
-3. Auto-install uv via winget or PowerShell
 
 **Download Source:**
 - `auto`: Auto-detect best source (checks Google accessibility)
