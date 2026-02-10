@@ -45,7 +45,7 @@ from acestep.constants import (
     DEFAULT_DIT_INSTRUCTION,
 )
 from acestep.dit_alignment_score import MusicStampsAligner, MusicLyricScorer
-from acestep.gpu_config import get_gpu_memory_gb, get_global_gpu_config
+from acestep.gpu_config import get_gpu_memory_gb, get_global_gpu_config, get_effective_free_vram_gb
 
 
 warnings.filterwarnings("ignore")
@@ -1485,36 +1485,154 @@ class AceStepHandler:
         # Align with gpu_config: MPS can use ~75% of unified memory for GPU workloads.
         return system_gb * 0.75
 
+    # Maximum VAE decode chunk size.  Larger chunks are faster but the
+    # PyTorch caching allocator may *reserve* significantly more VRAM than
+    # the peak *allocated* amount.  Empirical measurements (bf16 VAE,
+    # ~10 GB baseline from DiT + LM):
+    #   chunk  peak_alloc  peak_reserved
+    #    512     11.9 GB     12.7 GB
+    #   1024     13.1 GB     15.0 GB   ← dangerously close to 16 GB
+    #   1536     14.4 GB     17.2 GB   ← exceeds 16 GB
+    # Capping at 512 keeps reserved VRAM safely under 16 GB on consumer
+    # GPUs while the speed difference vs 1024/1536 is negligible for
+    # tiled decode (a few hundred ms).
+    VAE_DECODE_MAX_CHUNK_SIZE = 512
+
     def _get_auto_decode_chunk_size(self) -> int:
-        """Choose a conservative VAE decode chunk size based on memory."""
+        """Choose a conservative VAE decode chunk size based on available memory.
+        
+        For CUDA GPUs, uses actual free VRAM to determine chunk size.
+        For MPS, uses effective memory estimate.
+        Larger chunks are faster but use more VRAM; smaller chunks are safer.
+        The result is capped at ``VAE_DECODE_MAX_CHUNK_SIZE`` to prevent the
+        PyTorch caching allocator from over-reserving VRAM on consumer GPUs.
+        """
         override = os.environ.get("ACESTEP_VAE_DECODE_CHUNK_SIZE")
         if override:
             try:
                 value = int(override)
                 if value > 0:
-                    return value
+                    return value  # explicit override bypasses the cap
             except ValueError:
                 pass
+
+        max_chunk = self.VAE_DECODE_MAX_CHUNK_SIZE
+
         if self.device == "mps":
             mem_gb = self._get_effective_mps_memory_gb()
             if mem_gb is not None:
                 if mem_gb >= 48:
-                    return 1536
+                    return min(1536, max_chunk)
                 if mem_gb >= 24:
-                    return 1024
-        return 512
+                    return min(1024, max_chunk)
+            return min(512, max_chunk)
+        
+        # CUDA: use effective free VRAM (respects per-process memory fraction) to pick chunk size
+        if self.device == "cuda" or (isinstance(self.device, str) and self.device.startswith("cuda")):
+            try:
+                free_gb = get_effective_free_vram_gb()
+            except Exception:
+                free_gb = 0
+            logger.debug(f"[_get_auto_decode_chunk_size] Effective free VRAM: {free_gb:.2f} GB")
+            # VAE decode peak VRAM (allocated) scales roughly with chunk_size.
+            # Empirical: chunk_size=512 needs ~1.3 GB, 1024 needs ~2.6 GB, 1536 needs ~3.9 GB
+            # chunk_size=128 needs ~0.3 GB, chunk_size=64 needs ~0.3 GB
+            if free_gb >= 8.0:
+                return min(512, max_chunk)
+            elif free_gb >= 5.0:
+                return min(512, max_chunk)
+            elif free_gb >= 2.5:
+                return min(512, max_chunk)
+            elif free_gb >= 1.0:
+                return 256
+            elif free_gb >= 0.5:
+                return 128  # Very tight VRAM
+            else:
+                return 64   # Extremely tight VRAM — minimal chunk
+        
+        return min(512, max_chunk)
 
     def _should_offload_wav_to_cpu(self) -> bool:
-        """Decide whether to offload decoded wavs to CPU for memory safety."""
+        """Decide whether to offload decoded wavs to CPU for memory safety.
+        
+        For CUDA GPUs with >=24 GB free, keep on GPU for speed.
+        For MPS with >=32 GB, keep on GPU.
+        Otherwise offload to CPU to avoid OOM during concatenation.
+        """
         override = os.environ.get("ACESTEP_MPS_DECODE_OFFLOAD")
         if override:
             return override.lower() in ("1", "true", "yes")
-        if self.device != "mps":
+        if self.device == "mps":
+            mem_gb = self._get_effective_mps_memory_gb()
+            if mem_gb is not None and mem_gb >= 32:
+                return False
             return True
-        mem_gb = self._get_effective_mps_memory_gb()
-        if mem_gb is not None and mem_gb >= 32:
-            return False
+        # CUDA: offload unless plenty of free VRAM
+        if self.device == "cuda" or (isinstance(self.device, str) and self.device.startswith("cuda")):
+            try:
+                free_gb = get_effective_free_vram_gb()
+                logger.debug(f"[_should_offload_wav_to_cpu] Effective free VRAM: {free_gb:.2f} GB")
+                if free_gb >= 24.0:
+                    return False
+            except Exception:
+                pass
         return True
+
+    def _vram_guard_reduce_batch(
+        self,
+        batch_size: int,
+        audio_duration: Optional[float] = None,
+        use_lm: bool = False,
+    ) -> int:
+        """Pre-inference VRAM guard: auto-reduce batch_size if free VRAM is tight.
+        
+        Rough activation estimate per batch element:
+          - DiT forward pass: ~0.8 GB per sample at 60s, scales linearly with duration
+          - LM inference: KV cache is pre-allocated so batch doesn't change it much
+          - VAE decode: handled separately via tiled_decode
+        
+        We leave a 1.5 GB safety margin for CUDA allocator fragmentation.
+        """
+        if batch_size <= 1:
+            return batch_size
+
+        device = self.device
+        if device == "cpu" or device == "mps":
+            return batch_size  # No CUDA VRAM to guard
+
+        try:
+            free_gb = get_effective_free_vram_gb()
+        except Exception:
+            return batch_size
+
+        # Estimate per-sample activation cost for DiT
+        duration_sec = float(audio_duration) if audio_duration and float(audio_duration) > 0 else 60.0
+        # Empirical: ~0.8 GB per sample at 60s, linear scaling
+        per_sample_gb = 0.8 * (duration_sec / 60.0)
+        # If using cfg (base model), double the per-sample cost
+        if hasattr(self, 'model') and self.model is not None:
+            model_name = getattr(self, 'config_path', '') or ''
+            if 'base' in model_name.lower():
+                per_sample_gb *= 2.0
+
+        safety_margin_gb = 1.5
+        available_for_batch = free_gb - safety_margin_gb
+
+        if available_for_batch <= 0:
+            logger.warning(
+                f"[VRAM guard] Only {free_gb:.1f} GB free — reducing batch_size to 1"
+            )
+            return 1
+
+        max_safe_batch = max(1, int(available_for_batch / per_sample_gb))
+        if max_safe_batch < batch_size:
+            logger.warning(
+                f"[VRAM guard] Free VRAM {free_gb:.1f} GB can safely fit ~{max_safe_batch} samples "
+                f"(requested {batch_size}). Reducing batch_size to {max_safe_batch}."
+            )
+            return max_safe_batch
+
+        return batch_size
 
     def _start_diffusion_progress_estimator(
         self,
@@ -2921,15 +3039,30 @@ class AceStepHandler:
             chunk_size = self._get_auto_decode_chunk_size()
         if offload_wav_to_cpu is None:
             offload_wav_to_cpu = self._should_offload_wav_to_cpu()
+        
+        logger.info(f"[tiled_decode] chunk_size={chunk_size}, offload_wav_to_cpu={offload_wav_to_cpu}, latents_shape={latents.shape}")
+        
         B, C, T = latents.shape
+        
+        # Adjust overlap for very small chunk sizes to ensure positive stride
+        effective_overlap = overlap
+        while chunk_size - 2 * effective_overlap <= 0 and effective_overlap > 0:
+            effective_overlap = effective_overlap // 2
+        if effective_overlap != overlap:
+            logger.warning(f"[tiled_decode] Reduced overlap from {overlap} to {effective_overlap} for chunk_size={chunk_size}")
+        overlap = effective_overlap
         
         # If short enough, decode directly
         if T <= chunk_size:
-            # Decode and immediately extract .sample to avoid keeping DecoderOutput object
-            decoder_output = self.vae.decode(latents)
-            result = decoder_output.sample
-            del decoder_output
-            return result
+            try:
+                decoder_output = self.vae.decode(latents)
+                result = decoder_output.sample
+                del decoder_output
+                return result
+            except torch.cuda.OutOfMemoryError:
+                logger.warning("[tiled_decode] OOM on direct decode, falling back to CPU VAE decode")
+                self._empty_cache()
+                return self._decode_on_cpu(latents)
 
         # Calculate stride (core size)
         stride = chunk_size - 2 * overlap
@@ -2940,10 +3073,25 @@ class AceStepHandler:
         
         if offload_wav_to_cpu:
             # Optimized path: offload wav to CPU immediately to save VRAM
-            return self._tiled_decode_offload_cpu(latents, B, T, stride, overlap, num_steps)
+            try:
+                return self._tiled_decode_offload_cpu(latents, B, T, stride, overlap, num_steps)
+            except torch.cuda.OutOfMemoryError:
+                logger.warning(f"[tiled_decode] OOM during offload_cpu decode with chunk_size={chunk_size}, falling back to CPU VAE decode")
+                self._empty_cache()
+                return self._decode_on_cpu(latents)
         else:
             # Default path: keep everything on GPU
-            return self._tiled_decode_gpu(latents, B, T, stride, overlap, num_steps)
+            try:
+                return self._tiled_decode_gpu(latents, B, T, stride, overlap, num_steps)
+            except torch.cuda.OutOfMemoryError:
+                logger.warning(f"[tiled_decode] OOM during GPU decode with chunk_size={chunk_size}, falling back to CPU offload path")
+                self._empty_cache()
+                try:
+                    return self._tiled_decode_offload_cpu(latents, B, T, stride, overlap, num_steps)
+                except torch.cuda.OutOfMemoryError:
+                    logger.warning("[tiled_decode] OOM even with offload path, falling back to full CPU VAE decode")
+                    self._empty_cache()
+                    return self._decode_on_cpu(latents)
     
     def _tiled_decode_gpu(self, latents, B, T, stride, overlap, num_steps):
         """Standard tiled decode keeping all data on GPU."""
@@ -3070,6 +3218,44 @@ class AceStepHandler:
         final_audio = final_audio[:, :, :audio_write_pos]
         
         return final_audio
+    
+    def _decode_on_cpu(self, latents):
+        """
+        Emergency fallback: move VAE to CPU, decode there, then restore.
+        
+        This is used when GPU VRAM is too tight for even the smallest tiled decode.
+        Slower but guarantees no OOM on GPU.
+        """
+        logger.warning("[_decode_on_cpu] Moving VAE to CPU for decode (VRAM too tight for GPU decode)")
+        
+        # Remember original device
+        try:
+            original_device = next(self.vae.parameters()).device
+        except StopIteration:
+            original_device = torch.device("cpu")
+        
+        # Move VAE to CPU
+        vae_cpu_dtype = self._get_vae_dtype("cpu")
+        self._recursive_to_device(self.vae, "cpu", vae_cpu_dtype)
+        self._empty_cache()
+        
+        # Move latents to CPU
+        latents_cpu = latents.cpu().to(vae_cpu_dtype)
+        
+        # Decode on CPU (no tiling needed — CPU has plenty of RAM)
+        try:
+            with torch.inference_mode():
+                decoder_output = self.vae.decode(latents_cpu)
+                result = decoder_output.sample
+                del decoder_output
+        finally:
+            # Restore VAE to original device
+            if original_device.type != "cpu":
+                vae_gpu_dtype = self._get_vae_dtype(str(original_device))
+                self._recursive_to_device(self.vae, original_device, vae_gpu_dtype)
+        
+        logger.info(f"[_decode_on_cpu] CPU decode complete, result shape={result.shape}")
+        return result  # result stays on CPU — fine for audio post-processing
     
     def tiled_encode(self, audio, chunk_size=None, overlap=None, offload_latent_to_cpu=True):
         """
@@ -3338,6 +3524,15 @@ class AceStepHandler:
         actual_batch_size = batch_size if batch_size is not None else self.batch_size
         actual_batch_size = max(1, actual_batch_size)  # Ensure at least 1
 
+        # ---- Pre-inference VRAM guard ----
+        # Estimate whether the requested batch_size fits in free VRAM and
+        # auto-reduce if it does not.  This prevents OOM crashes at the cost
+        # of generating fewer samples.
+        actual_batch_size = self._vram_guard_reduce_batch(
+            actual_batch_size,
+            audio_duration=audio_duration,
+        )
+
         actual_seed_list, seed_value_for_ui = self.prepare_seeds(actual_batch_size, seed, use_random_seed)
         
         # Convert special values to None
@@ -3511,10 +3706,16 @@ class AceStepHandler:
                     
                     logger.debug(f"[generate_music] Before VAE decode: allocated={self._memory_allocated()/1024**3:.2f}GB, max={self._max_memory_allocated()/1024**3:.2f}GB")
                     
-                    # ROCm fix: decode VAE on CPU to bypass MIOpen workspace bugs
-                    # On APUs with unified memory this has zero data-transfer cost
+                    # Check effective free VRAM and auto-enable CPU decode if extremely tight
                     import os as _os
                     _vae_cpu = _os.environ.get("ACESTEP_VAE_ON_CPU", "0").lower() in ("1", "true", "yes")
+                    if not _vae_cpu:
+                        _effective_free = get_effective_free_vram_gb()
+                        logger.info(f"[generate_music] Effective free VRAM before VAE decode: {_effective_free:.2f} GB")
+                        # If less than 0.5 GB free, VAE decode on GPU will almost certainly OOM
+                        if _effective_free < 0.5:
+                            logger.warning(f"[generate_music] Only {_effective_free:.2f} GB free VRAM — auto-enabling CPU VAE decode")
+                            _vae_cpu = True
                     if _vae_cpu:
                         logger.info("[generate_music] Moving VAE to CPU for decode (ACESTEP_VAE_ON_CPU=1)...")
                         _vae_device = next(self.vae.parameters()).device
