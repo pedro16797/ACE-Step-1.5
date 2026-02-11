@@ -1792,6 +1792,8 @@ def generate_next_batch_background(
         params.setdefault("complete_track_classes", [])
         params.setdefault("enable_normalization", True)
         params.setdefault("normalization_db", -1.0)
+        params.setdefault("latent_shift", 0.0)
+        params.setdefault("latent_rescale", 1.0)
         
         # Call generate_with_progress with the saved parameters
         # Note: generate_with_progress is a generator, need to iterate through it
@@ -1845,6 +1847,8 @@ def generate_next_batch_background(
             lm_batch_chunk_size=params.get("lm_batch_chunk_size"),
             enable_normalization=params.get("enable_normalization"),
             normalization_db=params.get("normalization_db"),
+            latent_shift=params.get("latent_shift", 0.0),
+            latent_rescale=params.get("latent_rescale", 1.0),
             progress=progress
         )
         
@@ -2257,6 +2261,10 @@ def restore_batch_parameters(current_batch_index, batch_queue):
     enable_normalization = params.get("enable_normalization", True)
     normalization_db = params.get("normalization_db", -1.0)
 
+    # Latent Shift / Rescale
+    latent_shift = params.get("latent_shift", 0.0)
+    latent_rescale = params.get("latent_rescale", 1.0)
+
     
     # Extract codes - only restore to single input
     stored_codes = batch_data.get("codes", "")
@@ -2278,6 +2286,7 @@ def restore_batch_parameters(current_batch_index, batch_queue):
         lm_temperature, lm_cfg_scale, lm_top_k, lm_top_p, think_checkbox,
         use_cot_caption, use_cot_language, allow_lm_batch,
         track_name, complete_track_classes,
-        enable_normalization, normalization_db
+        enable_normalization, normalization_db,
+        latent_shift, latent_rescale
     )
 
