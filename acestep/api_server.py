@@ -2233,6 +2233,11 @@ def create_app() -> FastAPI:
             # when callers (multipart/form, url-encoded, raw body) pass them explicitly.
             ref_audio = kwargs.pop("reference_audio_path", None) or p.str("reference_audio_path") or None
             src_audio = kwargs.pop("src_audio_path", None) or p.str("src_audio_path") or None
+
+            t_classes = p.get("track_classes")
+            if t_classes is not None and isinstance(t_classes, str):
+                t_classes = [t_classes]
+
             return GenerateMusicRequest(
                 prompt=p.str("prompt"),
                 lyrics=p.str("lyrics"),
@@ -2282,7 +2287,7 @@ def create_app() -> FastAPI:
                 is_format_caption=p.bool("is_format_caption"),
                 allow_lm_batch=p.bool("allow_lm_batch", True),
                 track_name=p.str("track_name"),
-                track_classes=p.get("track_classes"),
+                track_classes=t_classes,
                 **kwargs,
             )
 
@@ -2315,7 +2320,16 @@ def create_app() -> FastAPI:
 
         elif content_type.startswith("multipart/form-data"):
             form = await request.form()
-            form_dict = {k: v for k, v in form.items() if not hasattr(v, 'read')}
+            
+            # Parse form data correctly to support lists ---
+            form_dict = {}
+            for k in form.keys():
+                vals = [v for v in form.getlist(k) if not hasattr(v, 'read')]
+                if len(vals) == 1:
+                    form_dict[k] = vals[0]
+                elif len(vals) > 1:
+                    form_dict[k] = vals
+
             verify_token_from_request(form_dict, authorization)
 
             # Support both naming conventions: ref_audio/reference_audio, ctx_audio/src_audio
