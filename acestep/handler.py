@@ -1737,6 +1737,7 @@ class AceStepHandler(
                             encoder_hidden_states_non_cover=enc_hs_nc,
                             encoder_attention_mask_non_cover=enc_am_nc,
                             context_latents_non_cover=ctx_nc,
+                            disable_tqdm=self.disable_tqdm,
                         )
                         _tc = outputs.get("time_costs", {})
                         _dt = _tc.get("diffusion_time_cost", 0)
