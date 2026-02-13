@@ -823,14 +823,29 @@ def create_app() -> FastAPI:
                 timesteps=default_timesteps,
             )
 
-            # Resolve seed
+            # Resolve seed(s): parse into Optional[List[int]] for GenerationConfig.seeds
             use_random_seed = request.seed is None
-            resolved_seed = request.seed if request.seed is not None else -1
+            resolved_seeds = None
+            if request.seed is not None:
+                if isinstance(request.seed, int):
+                    resolved_seeds = [request.seed]
+                elif isinstance(request.seed, str):
+                    resolved_seeds = []
+                    for s in request.seed.split(","):
+                        s = s.strip()
+                        if s:
+                            try:
+                                resolved_seeds.append(int(s))
+                            except ValueError:
+                                pass
+                    if not resolved_seeds:
+                        resolved_seeds = None
+                        use_random_seed = True
 
             config = GenerationConfig(
                 batch_size=request.batch_size or 1,
                 use_random_seed=use_random_seed,
-                seed=resolved_seed,
+                seeds=resolved_seeds,
                 audio_format=audio_config.format or "mp3",
             )
 
