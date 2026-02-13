@@ -108,7 +108,7 @@ def _create_service_config_content(dit_handler, llm_handler, defaults, init_para
     accordion_open = not service_pre_initialized
     accordion_visible = not service_mode
 
-    with gr.Accordion(t("service.title"), open=accordion_open, visible=accordion_visible) as service_config_accordion:
+    with gr.Accordion(t("service.title"), open=accordion_open, visible=accordion_visible, elem_classes=["has-info-container"]) as service_config_accordion:
         # Language selector
         with gr.Row():
             language_dropdown = gr.Dropdown(
@@ -313,7 +313,7 @@ def create_advanced_settings_section(dit_handler, llm_handler, init_params=None,
         # ═══════════════════════════════════════════
         # LoRA Adapter (sub-accordion, collapsed)
         # ═══════════════════════════════════════════
-        with gr.Accordion("🔧 LoRA Adapter", open=False):
+        with gr.Accordion("🔧 LoRA Adapter", open=False, elem_classes=["has-info-container"]):
             with gr.Row():
                 lora_path = gr.Textbox(label="LoRA Path", placeholder="./lora_output/final/adapter", info="Path to trained LoRA adapter directory", scale=3)
                 load_lora_btn = gr.Button("📥 Load LoRA", variant="secondary", scale=1)
@@ -326,7 +326,7 @@ def create_advanced_settings_section(dit_handler, llm_handler, init_params=None,
         # ═══════════════════════════════════════════
         # DiT Diffusion Parameters
         # ═══════════════════════════════════════════
-        with gr.Accordion(t("generation.advanced_dit_section"), open=True):
+        with gr.Accordion(t("generation.advanced_dit_section"), open=True, elem_classes=["has-info-container"]):
             with gr.Row():
                 inference_steps = gr.Slider(
                     minimum=_ui_config["inference_steps_minimum"],
@@ -385,7 +385,7 @@ def create_advanced_settings_section(dit_handler, llm_handler, init_params=None,
         # ═══════════════════════════════════════════
         # LM Generation Parameters
         # ═══════════════════════════════════════════
-        with gr.Accordion(t("generation.advanced_lm_section"), open=False):
+        with gr.Accordion(t("generation.advanced_lm_section"), open=False, elem_classes=["has-info-container"]):
             with gr.Row():
                 lm_temperature = gr.Slider(label=t("generation.lm_temperature_label"), minimum=0.0, maximum=2.0, value=0.85, step=0.1, scale=1, info=t("generation.lm_temperature_info"), elem_classes=["has-info-container"])
                 lm_cfg_scale = gr.Slider(label=t("generation.lm_cfg_scale_label"), minimum=1.0, maximum=3.0, value=2.0, step=0.1, scale=1, info=t("generation.lm_cfg_scale_info"), elem_classes=["has-info-container"])
@@ -415,7 +415,7 @@ def create_advanced_settings_section(dit_handler, llm_handler, init_params=None,
         # ═══════════════════════════════════════════
         # Audio Output & Post-processing
         # ═══════════════════════════════════════════
-        with gr.Accordion(t("generation.advanced_output_section"), open=False):
+        with gr.Accordion(t("generation.advanced_output_section"), open=False, elem_classes=["has-info-container"]):
             with gr.Row():
                 audio_format = gr.Dropdown(
                     choices=[("FLAC", "flac"), ("MP3", "mp3"), ("WAV (16-bit)", "wav"), ("WAV (32-bit Float)", "wav32")],
@@ -444,7 +444,7 @@ def create_advanced_settings_section(dit_handler, llm_handler, init_params=None,
         # ═══════════════════════════════════════════
         # Automation & Batch
         # ═══════════════════════════════════════════
-        with gr.Accordion(t("generation.advanced_automation_section"), open=False):
+        with gr.Accordion(t("generation.advanced_automation_section"), open=False, elem_classes=["has-info-container"]):
             with gr.Row():
                 lm_batch_chunk_size = gr.Number(label=t("generation.lm_batch_chunk_label"), value=8, minimum=1, maximum=32, step=1, info=t("generation.lm_batch_chunk_info"), scale=1, interactive=not service_mode, elem_classes=["has-info-container"])
 
@@ -561,7 +561,7 @@ def create_generation_tab_section(dit_handler, llm_handler, init_params=None, la
         )
 
         # --- Simple Mode Components (only visible in Simple mode) ---
-        with gr.Group(visible=False) as simple_mode_group:
+        with gr.Group(visible=False, elem_classes=["has-info-container"]) as simple_mode_group:
             with gr.Row(equal_height=True):
                 simple_query_input = gr.Textbox(
                     label=t("generation.simple_query_label"),
@@ -609,7 +609,7 @@ def create_generation_tab_section(dit_handler, llm_handler, init_params=None, la
                 )
 
         # --- LM Codes Hints (only visible in Custom mode, collapsed by default) ---
-        with gr.Accordion(t("generation.lm_codes_hints"), open=False, visible=True) as text2music_audio_codes_group:
+        with gr.Accordion(t("generation.lm_codes_hints"), open=False, visible=True, elem_classes=["has-info-container"]) as text2music_audio_codes_group:
             with gr.Row(equal_height=True):
                 lm_codes_audio_upload = gr.Audio(
                     label=t("generation.source_audio"),
@@ -655,7 +655,7 @@ def create_generation_tab_section(dit_handler, llm_handler, init_params=None, la
         )
 
         # --- Custom Mode: Reference Audio | (Caption + Enhance) | (Lyrics + Instrumental + Enhance) | 🎲 ---
-        with gr.Group(visible=True) as custom_mode_group:
+        with gr.Group(visible=True, elem_classes=["has-info-container"]) as custom_mode_group:
             with gr.Row(equal_height=True):
                 # Left: Reference Audio
                 with gr.Column(scale=2, min_width=200):
@@ -719,7 +719,7 @@ def create_generation_tab_section(dit_handler, llm_handler, init_params=None, la
                 repainting_end = gr.Number(label=t("generation.repainting_end"), value=-1, minimum=-1, step=0.1)
 
         # --- Optional Parameters (collapsed by default) ---
-        with gr.Accordion(t("generation.optional_params"), open=False, visible=True) as optional_params_accordion:
+        with gr.Accordion(t("generation.optional_params"), open=False, visible=True, elem_classes=["has-info-container"]) as optional_params_accordion:
             gr.Markdown(f"#### {t('generation.optional_music_props')}")
             with gr.Row():
                 bpm = gr.Number(label=t("generation.bpm_label"), value=None, step=1, info=t("generation.bpm_info"), elem_classes=["has-info-container"])
