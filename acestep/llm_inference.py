@@ -1639,6 +1639,7 @@ class LLMHandler:
         repetition_penalty: float = 1.0,
         use_constrained_decoding: bool = True,
         constrained_decoding_debug: bool = False,
+        progress=None,
     ) -> Tuple[Dict[str, Any], str]:
         """
         Understand audio codes and generate metadata + lyrics.
@@ -1691,6 +1692,7 @@ class LLMHandler:
         # Note: cfg_scale and negative_prompt are not used in understand mode
         output_text, status = self.generate_from_formatted_prompt(
             formatted_prompt=formatted_prompt,
+            progress=progress,
             cfg={
                 "temperature": temperature,
                 "top_k": top_k,
@@ -1833,6 +1835,7 @@ class LLMHandler:
         repetition_penalty: float = 1.0,
         use_constrained_decoding: bool = True,
         constrained_decoding_debug: bool = False,
+        progress=None,
     ) -> Tuple[Dict[str, Any], str]:
         """
         Create a complete music sample from a user's natural language query.
@@ -1900,6 +1903,7 @@ class LLMHandler:
         # Note: cfg_scale and negative_prompt are not used in create_sample mode
         output_text, status = self.generate_from_formatted_prompt(
             formatted_prompt=formatted_prompt,
+            progress=progress,
             cfg={
                 "temperature": temperature,
                 "top_k": top_k,
@@ -2007,6 +2011,7 @@ class LLMHandler:
         repetition_penalty: float = 1.0,
         use_constrained_decoding: bool = True,
         constrained_decoding_debug: bool = False,
+        progress=None,
     ) -> Tuple[Dict[str, Any], str]:
         """
         Format user-provided caption and lyrics into structured music metadata.
@@ -2101,6 +2106,7 @@ class LLMHandler:
         # Note: cfg_scale and negative_prompt are not used in format mode
         output_text, status = self.generate_from_formatted_prompt(
             formatted_prompt=formatted_prompt,
+            progress=progress,
             cfg={
                 "temperature": temperature,
                 "top_k": top_k,

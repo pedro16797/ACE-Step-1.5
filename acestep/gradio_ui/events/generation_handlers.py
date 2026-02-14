@@ -828,7 +828,7 @@ def _contains_audio_code_tokens(codes_string: str) -> bool:
     return bool(re.search(r"<\|audio_code_\d+\|>", codes_string))
 
 
-def analyze_src_audio(dit_handler, llm_handler, src_audio, constrained_decoding_debug=False):
+def analyze_src_audio(dit_handler, llm_handler, src_audio, constrained_decoding_debug=False, progress=gr.Progress(track_tqdm=True)):
     """Analyze source audio: convert to codes, then transcribe to caption/lyrics/metas.
 
     This is the combined "Analyze" action for Remix/Repaint modes.
@@ -838,10 +838,13 @@ def analyze_src_audio(dit_handler, llm_handler, src_audio, constrained_decoding_
         llm_handler: LLM handler instance
         src_audio: Path to source audio file
         constrained_decoding_debug: Whether to enable debug logging
+        progress: Progress reporter
 
     Returns:
         Tuple of (audio_codes, status, caption, lyrics, bpm, duration, keyscale, language, timesignature, is_format_caption)
     """
+    if progress:
+        progress(0.1, desc="Converting audio to codes...")
     # 10-item error tuple: (codes, status, caption, lyrics, bpm, duration, key, lang, timesig, is_format)
     def _err(status: str):
         return ("", status, "", "", None, None, "", "", "", False)
@@ -875,11 +878,14 @@ def analyze_src_audio(dit_handler, llm_handler, src_audio, constrained_decoding_
         gr.Warning(t("messages.lm_not_initialized"))
         return (codes_string, t("messages.lm_not_initialized"), "", "", None, None, "", "", "", False)
 
+    if progress:
+        progress(0.5, desc="Transcribing audio codes...")
     result = understand_music(
         llm_handler=llm_handler,
         audio_codes=codes_string,
         use_constrained_decoding=True,
         constrained_decoding_debug=constrained_decoding_debug,
+        progress=progress,
     )
 
     if not result.success:
@@ -937,7 +943,7 @@ def update_instruction_ui(
     )
 
 
-def transcribe_audio_codes(llm_handler, audio_code_string, constrained_decoding_debug):
+def transcribe_audio_codes(llm_handler, audio_code_string, constrained_decoding_debug, progress=gr.Progress(track_tqdm=True)):
     """
     Transcribe audio codes to metadata using LLM understanding.
     If audio_code_string is empty, generate a sample example instead.
@@ -958,6 +964,7 @@ def transcribe_audio_codes(llm_handler, audio_code_string, constrained_decoding_
         audio_codes=audio_code_string,
         use_constrained_decoding=True,
         constrained_decoding_debug=constrained_decoding_debug,
+        progress=progress,
     )
     
     # Handle error case with localized message
@@ -1217,6 +1224,7 @@ def handle_create_sample(
     lm_top_k: int,
     lm_top_p: float,
     constrained_decoding_debug: bool = False,
+    progress=gr.Progress(track_tqdm=True),
 ):
     """
     Handle the Create Sample button click in Simple mode.
@@ -1291,6 +1299,7 @@ def handle_create_sample(
         top_p=top_p_value,
         use_constrained_decoding=True,
         constrained_decoding_debug=constrained_decoding_debug,
+        progress=progress,
     )
     
     # Handle error
@@ -1352,6 +1361,7 @@ def handle_format_sample(
     lm_top_k: int,
     lm_top_p: float,
     constrained_decoding_debug: bool = False,
+    progress=gr.Progress(track_tqdm=True),
 ):
     """
     Handle the Format button click to format caption and lyrics.
@@ -1430,6 +1440,7 @@ def handle_format_sample(
         top_p=top_p_value,
         use_constrained_decoding=True,
         constrained_decoding_debug=constrained_decoding_debug,
+        progress=progress,
     )
     
     # Handle error
@@ -1479,6 +1490,7 @@ def handle_format_caption(
     lm_top_k: int,
     lm_top_p: float,
     constrained_decoding_debug: bool = False,
+    progress=gr.Progress(track_tqdm=True),
 ):
     """Format only the caption using the LLM. Lyrics are passed through unchanged.
     
@@ -1530,6 +1542,7 @@ def handle_format_caption(
         top_p=top_p_value,
         use_constrained_decoding=True,
         constrained_decoding_debug=constrained_decoding_debug,
+        progress=progress,
     )
 
     if not result.success:
@@ -1576,6 +1589,7 @@ def handle_format_lyrics(
     lm_top_k: int,
     lm_top_p: float,
     constrained_decoding_debug: bool = False,
+    progress=gr.Progress(track_tqdm=True),
 ):
     """Format only the lyrics using the LLM. Caption is passed through unchanged.
     
@@ -1627,6 +1641,7 @@ def handle_format_lyrics(
         top_p=top_p_value,
         use_constrained_decoding=True,
         constrained_decoding_debug=constrained_decoding_debug,
+        progress=progress,
     )
 
     if not result.success:

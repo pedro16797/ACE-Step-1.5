@@ -774,6 +774,7 @@ def understand_music(
     repetition_penalty: float = 1.0,
     use_constrained_decoding: bool = True,
     constrained_decoding_debug: bool = False,
+    progress=None,
 ) -> UnderstandResult:
     """Understand music from audio codes using the 5Hz Language Model.
     
@@ -828,6 +829,7 @@ def understand_music(
             repetition_penalty=repetition_penalty,
             use_constrained_decoding=use_constrained_decoding,
             constrained_decoding_debug=constrained_decoding_debug,
+            progress=progress,
         )
         
         # Check if LLM returned empty metadata (error case)
@@ -948,6 +950,7 @@ def create_sample(
     repetition_penalty: float = 1.0,
     use_constrained_decoding: bool = True,
     constrained_decoding_debug: bool = False,
+    progress=None,
 ) -> CreateSampleResult:
     """Create a music sample from a natural language query using the 5Hz Language Model.
     
@@ -1003,6 +1006,7 @@ def create_sample(
             repetition_penalty=repetition_penalty,
             use_constrained_decoding=use_constrained_decoding,
             constrained_decoding_debug=constrained_decoding_debug,
+            progress=progress,
         )
         
         # Check if LLM returned empty metadata (error case)
@@ -1122,6 +1126,7 @@ def format_sample(
     repetition_penalty: float = 1.0,
     use_constrained_decoding: bool = True,
     constrained_decoding_debug: bool = False,
+    progress=None,
 ) -> FormatSampleResult:
     """Format user-provided caption and lyrics using the 5Hz Language Model.
     
@@ -1177,6 +1182,7 @@ def format_sample(
             repetition_penalty=repetition_penalty,
             use_constrained_decoding=use_constrained_decoding,
             constrained_decoding_debug=constrained_decoding_debug,
+            progress=progress,
         )
         
         # Check if LLM returned empty metadata (error case)
