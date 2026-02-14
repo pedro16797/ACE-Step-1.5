@@ -728,8 +728,9 @@ def create_generation_tab_section(dit_handler, llm_handler, init_params=None, la
                 vocal_language = gr.Dropdown(
                     choices=[(lang if lang != "unknown" else "Instrumental / auto", lang) for lang in VALID_LANGUAGES], value="unknown",
                     label=t("generation.vocal_language_label"),
-
+                    info=t("generation.vocal_language_info"),
                     allow_custom_value=True,
+                    elem_classes=["has-info-container"],
                 )
             gr.Markdown(f"#### {t('generation.optional_gen_settings')}")
             with gr.Row():
