@@ -87,7 +87,7 @@ def auto_label_all(
     format_lyrics: bool = False,
     transcribe_lyrics: bool = False,
     only_unlabeled: bool = False,
-    progress=None,
+    progress=gr.Progress(track_tqdm=True),
 ) -> Tuple[List[List[Any]], str, DatasetBuilder]:
     """Auto-label all samples in the dataset.
 
@@ -410,7 +410,7 @@ def preprocess_dataset(
     preprocess_mode: str,
     dit_handler,
     builder_state: Optional[DatasetBuilder],
-    progress=None,
+    progress=gr.Progress(track_tqdm=True),
 ) -> str:
     """Preprocess dataset to tensor files for fast training.
     

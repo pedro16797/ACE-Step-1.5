@@ -657,8 +657,8 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
             outputs=[results_section[f"lrc_download_file_{btn_idx}"]]
         )
     
-    def generation_wrapper(*args):
-        yield from res_h.generate_with_batch_management(dit_handler, llm_handler, *args)
+    def generation_wrapper(*args, progress=gr.Progress(track_tqdm=True)):
+        yield from res_h.generate_with_batch_management(dit_handler, llm_handler, *args, progress=progress)
     # ========== Generation Handler ==========
     generation_section["generate_btn"].click(
         fn=res_h.clear_audio_outputs_for_new_generation,
@@ -675,6 +675,7 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
         ],
     ).then(
         fn=generation_wrapper,
+        show_progress="minimal",
         inputs=[
             generation_section["captions"],
             generation_section["lyrics"],
@@ -790,7 +791,7 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
             results_section["restore_params_btn"],
         ],
     ).then(
-        fn=lambda *args: res_h.generate_next_batch_background(dit_handler, llm_handler, *args),
+        fn=lambda *args, progress=gr.Progress(track_tqdm=True): res_h.generate_next_batch_background(dit_handler, llm_handler, *args, progress=progress),
         inputs=[
             generation_section["autogen_checkbox"],
             results_section["generation_params_state"],
@@ -980,7 +981,7 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
             results_section["restore_params_btn"],
         ]
     ).then(
-        fn=lambda *args: res_h.generate_next_batch_background(dit_handler, llm_handler, *args),
+        fn=lambda *args, progress=gr.Progress(track_tqdm=True): res_h.generate_next_batch_background(dit_handler, llm_handler, *args, progress=progress),
         inputs=[
             generation_section["autogen_checkbox"],
             results_section["generation_params_state"],
@@ -1123,9 +1124,10 @@ def setup_training_event_handlers(demo, dit_handler, llm_handler, training_secti
     
     # Auto-label all samples
     training_section["auto_label_btn"].click(
-        fn=lambda state, skip, fmt_lyrics, trans_lyrics, only_unlab: train_h.auto_label_all(
-            dit_handler, llm_handler, state, skip, fmt_lyrics, trans_lyrics, only_unlab
+        fn=lambda state, skip, fmt, trans, unlabeled, progress=gr.Progress(track_tqdm=True): train_h.auto_label_all(
+            dit_handler, llm_handler, state, skip, fmt, trans, unlabeled, progress=progress
         ),
+        show_progress="minimal",
         inputs=[
             training_section["dataset_builder_state"],
             training_section["skip_metas"],
@@ -1310,9 +1312,10 @@ def setup_training_event_handlers(demo, dit_handler, llm_handler, training_secti
     
     # Preprocess dataset to tensor files
     training_section["preprocess_btn"].click(
-        fn=lambda output_dir, mode, state: train_h.preprocess_dataset(
-            output_dir, mode, dit_handler, state
+        fn=lambda output_dir, mode, state, progress=gr.Progress(track_tqdm=True): train_h.preprocess_dataset(
+            output_dir, mode, dit_handler, state, progress=progress
         ),
+        show_progress="minimal",
         inputs=[
             training_section["preprocess_output_dir"],
             training_section["preprocess_mode"],
