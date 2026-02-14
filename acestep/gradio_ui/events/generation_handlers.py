@@ -573,12 +573,14 @@ def init_service_wrapper(dit_handler, llm_handler, checkpoint, config_path, devi
     
     duration_update = gr.update(
         maximum=float(max_duration),
-        info=f"Duration in seconds (-1 for auto). Max: {max_duration}s / {max_duration // 60} min"
+        info=f"Duration in seconds (-1 for auto). Max: {max_duration}s / {max_duration // 60} min.",
+        elem_classes=["has-info-container"],
     )
     batch_update = gr.update(
         value=min(2, max_batch),  # Clamp value to new maximum to avoid Gradio validation error
         maximum=max_batch,
-        info=f"Number of samples to generate (Max: {max_batch})"
+        info=f"Number of samples to generate (Max: {max_batch}).",
+        elem_classes=["has-info-container"],
     )
     
     # Add GPU config info to status
@@ -654,28 +656,34 @@ def on_tier_change(selected_tier, llm_handler=None):
     return (
         # offload_to_cpu_checkbox
         gr.update(value=new_config.offload_to_cpu_default,
-                  info=t("service.offload_cpu_info") + (" (recommended for this tier)" if new_config.offload_to_cpu_default else " (optional for this tier)")),
+                  info=t("service.offload_cpu_info") + (" (recommended for this tier)" if new_config.offload_to_cpu_default else ""),
+                  elem_classes=["has-info-container"]),
         # offload_dit_to_cpu_checkbox
         gr.update(value=new_config.offload_dit_to_cpu_default,
-                  info=t("service.offload_dit_cpu_info") + (" (recommended for this tier)" if new_config.offload_dit_to_cpu_default else " (optional for this tier)")),
+                  info=t("service.offload_dit_cpu_info") + (" (recommended for this tier)" if new_config.offload_dit_to_cpu_default else ""),
+                  elem_classes=["has-info-container"]),
         # compile_model_checkbox
         gr.update(value=new_config.compile_model_default),
         # quantization_checkbox
         gr.update(value=new_config.quantization_default,
-                  info=t("service.quantization_info") + (" (recommended for this tier)" if new_config.quantization_default else " (optional for this tier)")),
+                  info=t("service.quantization_info") + (" (recommended for this tier)" if new_config.quantization_default else ""),
+                  elem_classes=["has-info-container"]),
         # backend_dropdown
-        gr.update(choices=available_backends, value=recommended_backend),
+        gr.update(choices=available_backends, value=recommended_backend, elem_classes=["has-info-container"]),
         # lm_model_path
         gr.update(choices=all_disk_models, value=default_lm_model,
-                  info=t("service.lm_model_path_info") + (f" (Recommended: {recommended_lm})" if recommended_lm else " (LM not available for this GPU tier)")),
+                  info=t("service.lm_model_path_info") + (f" (Recommended: {recommended_lm})" if recommended_lm else " (LM not available for this GPU tier)."),
+                  elem_classes=["has-info-container"]),
         # init_llm_checkbox
-        gr.update(value=new_config.init_lm_default),
+        gr.update(value=new_config.init_lm_default, elem_classes=["has-info-container"]),
         # batch_size_input
         gr.update(value=min(2, max_batch), maximum=max_batch,
-                  info=f"Number of samples to generate (Max: {max_batch})"),
+                  info=f"Number of samples to generate (Max: {max_batch}).",
+                  elem_classes=["has-info-container"]),
         # audio_duration
         gr.update(maximum=float(max_duration),
-                  info=f"Duration in seconds (-1 for auto). Max: {max_duration}s / {max_duration // 60} min"),
+                  info=f"Duration in seconds (-1 for auto). Max: {max_duration}s / {max_duration // 60} min.",
+                  elem_classes=["has-info-container"]),
         # gpu_info_display
         gr.update(value=gpu_info_text),
     )
@@ -798,17 +806,17 @@ def update_audio_cover_strength_visibility(task_type_value, init_llm_checked, re
     # Label priority: cover -> LM codes -> Similarity/Denoise (reference audio)
     if task_type_value == "cover":
         label = t("generation.cover_strength_label")
-        info = t("generation.cover_strength_info")
+        help_text = t("generation.cover_strength_info")
     elif init_llm_checked:
         label = t("generation.codes_strength_label")
-        info = t("generation.codes_strength_info")
+        help_text = t("generation.codes_strength_info")
     elif has_reference:
         label = t("generation.similarity_denoise_label")
-        info = t("generation.similarity_denoise_info")
+        help_text = t("generation.similarity_denoise_info")
     else:
         label = t("generation.cover_strength_label")
-        info = t("generation.cover_strength_info")
-    return gr.update(visible=is_visible, label=label, info=info)
+        help_text = t("generation.cover_strength_info")
+    return gr.update(visible=is_visible, label=label, info=help_text, elem_classes=["has-info-container"])
 
 
 def convert_src_audio_to_codes_wrapper(dit_handler, src_audio):
@@ -839,26 +847,31 @@ def analyze_src_audio(dit_handler, llm_handler, src_audio, constrained_decoding_
         Tuple of (audio_codes, status, caption, lyrics, bpm, duration, keyscale, language, timesignature, is_format_caption)
     """
     # 10-item error tuple: (codes, status, caption, lyrics, bpm, duration, key, lang, timesig, is_format)
-    _err = ("", "", "", "", None, None, "", "", "", False)
+    def _err(status: str):
+        return ("", status, "", "", None, None, "", "", "", False)
 
     # Step 1: Convert audio to codes
     if not src_audio:
-        gr.Warning("No audio file provided.")
-        return _err
+        status = "No audio file provided."
+        gr.Warning(status)
+        return _err(status)
 
     try:
         codes_string = dit_handler.convert_src_audio_to_codes(src_audio)
     except Exception as e:
-        gr.Warning(f"Failed to convert audio to codes: {e}")
-        return _err
+        status = f"Failed to convert audio to codes: {e}"
+        gr.Warning(status)
+        return _err(status)
 
     if not codes_string or not codes_string.strip():
-        gr.Warning("Audio conversion produced empty codes.")
-        return _err
+        status = "Audio conversion produced empty codes."
+        gr.Warning(status)
+        return _err(status)
 
     if not _contains_audio_code_tokens(codes_string):
-        gr.Warning("Source file is not valid audio or conversion failed (no audio codes detected).")
-        return _err
+        status = "Source file is not valid audio or conversion failed (no audio codes detected)."
+        gr.Warning(status)
+        return _err(status)
 
     # Step 2: Transcribe codes to caption/lyrics/metas via LLM
     if not llm_handler.llm_initialized:
@@ -1144,7 +1157,7 @@ def compute_mode_ui_updates(mode: str, llm_handler=None):
         "Lego": t("generation.mode_info_lego"),
         "Complete": t("generation.mode_info_complete"),
     }
-    mode_info_text = mode_descriptions.get(mode, "")
+    mode_help_text = mode_descriptions.get(mode, "")
 
     show_results = not_simple
 
@@ -1154,14 +1167,14 @@ def compute_mode_ui_updates(mode: str, llm_handler=None):
         gr.update(interactive=generate_interactive),   # generate_btn
         False,                                         # simple_sample_created
         gr.Accordion(visible=show_optional, open=False),  # optional_params_accordion
-        gr.update(value=task_type),                    # task_type
+        gr.update(value=task_type, elem_classes=["has-info-container"]), # task_type
         gr.update(visible=show_src_audio),             # src_audio_row
         gr.update(visible=show_repainting),            # repainting_group
         gr.update(visible=show_audio_codes),           # text2music_audio_codes_group
         gr.update(visible=show_track_name),            # track_name
         gr.update(visible=show_complete_classes),       # complete_track_classes
         gr.update(visible=show_generate_row),          # generate_btn_row
-        gr.update(info=mode_info_text),                # generation_mode (info)
+        gr.update(info=mode_help_text, elem_classes=["has-info-container"]), # generation_mode (info -> help)
         gr.update(visible=show_results),               # results_wrapper
         think_update,                                  # think_checkbox
         gr.update(visible=not_simple),                 # load_file_col

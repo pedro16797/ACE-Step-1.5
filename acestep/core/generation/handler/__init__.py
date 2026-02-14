@@ -2,6 +2,11 @@
 
 from .audio_codes import AudioCodesMixin
 from .batch_prep import BatchPrepMixin
+from .conditioning_batch import ConditioningBatchMixin
+from .conditioning_embed import ConditioningEmbedMixin
+from .conditioning_masks import ConditioningMaskMixin
+from .conditioning_target import ConditioningTargetMixin
+from .conditioning_text import ConditioningTextMixin
 from .diffusion import DiffusionMixin
 from .init_service import InitServiceMixin
 from .io_audio import IoAudioMixin
@@ -16,6 +21,11 @@ from .task_utils import TaskUtilsMixin
 __all__ = [
     "AudioCodesMixin",
     "BatchPrepMixin",
+    "ConditioningBatchMixin",
+    "ConditioningEmbedMixin",
+    "ConditioningMaskMixin",
+    "ConditioningTargetMixin",
+    "ConditioningTextMixin",
     "DiffusionMixin",
     "InitServiceMixin",
     "IoAudioMixin",
