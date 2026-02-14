@@ -1207,6 +1207,7 @@ class LLMHandler:
             # Generate CoT (stop at </think>)
             cot_output_text, status = self.generate_from_formatted_prompt(
                 formatted_prompt=formatted_prompt,
+                progress=progress,
                 cfg={
                     "temperature": temperature,
                     "cfg_scale": cfg_scale,
@@ -1410,6 +1411,7 @@ class LLMHandler:
             # Single mode: generate codes for one item
             codes_output_text, status = self.generate_from_formatted_prompt(
                 formatted_prompt=formatted_prompt_with_cot,
+                progress=progress,
                 cfg={
                     "temperature": temperature,
                     "cfg_scale": cfg_scale,
@@ -2155,6 +2157,7 @@ class LLMHandler:
         use_constrained_decoding: bool = True,
         constrained_decoding_debug: bool = False,
         stop_at_reasoning: bool = False,
+        progress=None,
     ) -> Tuple[str, str]:
         """
         Generate raw LM text output from a pre-built formatted prompt.

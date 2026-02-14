@@ -990,6 +990,7 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
         ]
     ).then(
         fn=lambda *args, progress=gr.Progress(track_tqdm=True): res_h.generate_next_batch_background(dit_handler, llm_handler, *args, progress=progress),
+        show_progress="hidden",
         inputs=[
             generation_section["autogen_checkbox"],
             results_section["generation_params_state"],
