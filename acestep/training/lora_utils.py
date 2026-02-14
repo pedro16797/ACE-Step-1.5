@@ -14,6 +14,10 @@ import torch
 import torch.nn as nn
 from safetensors.torch import load_file
 
+# Restrict checkpoint-related filesystem access to a safe root.
+# This mirrors SAFE_TRAINING_ROOT in training_handlers.py.
+SAFE_CHECKPOINT_ROOT = os.path.abspath(os.getcwd())
+
 try:
     from peft import (
         get_peft_model,
@@ -339,6 +343,32 @@ def save_training_checkpoint(
     return output_dir
 
 
+def _safe_checkpoint_dir(user_dir: str) -> Optional[str]:
+    """Safely resolve a user-provided checkpoint directory within SAFE_CHECKPOINT_ROOT.
+
+    Returns an absolute, normalized path inside SAFE_CHECKPOINT_ROOT, or None if invalid.
+    """
+    if not user_dir:
+        return None
+    candidate = user_dir.strip()
+    if not candidate:
+        return None
+    # Disallow absolute paths; require paths under SAFE_CHECKPOINT_ROOT
+    if os.path.isabs(candidate):
+        abs_root = os.path.abspath(SAFE_CHECKPOINT_ROOT)
+        normalized = os.path.abspath(candidate)
+    else:
+        abs_root = os.path.abspath(SAFE_CHECKPOINT_ROOT)
+        normalized = os.path.abspath(os.path.join(abs_root, candidate))
+    try:
+        common = os.path.commonpath([abs_root, normalized])
+    except ValueError:
+        return None
+    if common != abs_root:
+        return None
+    return normalized
+
+
 def load_training_checkpoint(
     checkpoint_dir: str,
     optimizer=None,
@@ -369,15 +399,21 @@ def load_training_checkpoint(
         "loaded_scheduler": False,
     }
 
+    # Normalize and validate checkpoint directory to stay within SAFE_CHECKPOINT_ROOT
+    safe_dir = _safe_checkpoint_dir(checkpoint_dir)
+    if safe_dir is None:
+        logger.warning(f"Rejected unsafe checkpoint directory: {checkpoint_dir!r}")
+        return result
+
     # Find adapter path
-    adapter_path = os.path.join(checkpoint_dir, "adapter")
+    adapter_path = os.path.join(safe_dir, "adapter")
     if os.path.exists(adapter_path):
         result["adapter_path"] = adapter_path
-    elif os.path.exists(checkpoint_dir):
-        result["adapter_path"] = checkpoint_dir
+    elif os.path.exists(safe_dir):
+        result["adapter_path"] = safe_dir
 
     # Load training state (use safetensors; avoid unsafe pickle-based torch.load)
-    state_path_safe = os.path.join(checkpoint_dir, "training_state.safetensors")
+    state_path_safe = os.path.join(safe_dir, "training_state.safetensors")
     if os.path.exists(state_path_safe):
         # safetensors is a safe, non-executable tensor serialization format
         try:
@@ -408,7 +444,7 @@ def load_training_checkpoint(
     else:
         # Fallback: extract epoch from path
         import re
-        match = re.search(r'epoch_(\d+)', checkpoint_dir)
+        match = re.search(r'epoch_(\d+)', safe_dir)
         if match:
             result["epoch"] = int(match.group(1))
             logger.info(f"No training_state.safetensors found, extracted epoch {result['epoch']} from path")
