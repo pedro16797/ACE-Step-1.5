@@ -165,7 +165,7 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
     # ========== Analyze Source Audio (Remix/Repaint: convert to codes + transcribe) ==========
     generation_section["analyze_btn"].click(
         fn=lambda src, debug, progress=gr.Progress(track_tqdm=True): gen_h.analyze_src_audio(dit_handler, llm_handler, src, debug, progress=progress),
-        show_progress="hidden",
+        show_progress="minimal",
         inputs=[
             generation_section["src_audio"],
             generation_section["constrained_decoding_debug"],
@@ -207,7 +207,7 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
     # Load random example from ./examples/text2music directory
     generation_section["sample_btn"].click(
         fn=lambda task: gen_h.load_random_example(task, llm_handler) + (True,),
-        show_progress="hidden",
+        show_progress="minimal",
         inputs=[
             generation_section["task_type"],
         ],
@@ -232,7 +232,7 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
     
     generation_section["transcribe_btn"].click(
         fn=lambda codes, debug, progress=gr.Progress(track_tqdm=True): gen_h.transcribe_audio_codes(llm_handler, codes, debug, progress=progress),
-        show_progress="hidden",
+        show_progress="minimal",
         inputs=[
             generation_section["text2music_audio_code_string"],
             generation_section["constrained_decoding_debug"]
@@ -279,7 +279,7 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
         fn=lambda caption, lyrics, bpm, duration, key_scale, time_sig, temp, top_k, top_p, debug, progress=gr.Progress(track_tqdm=True): gen_h.handle_format_caption(
             llm_handler, caption, lyrics, bpm, duration, key_scale, time_sig, temp, top_k, top_p, debug, progress=progress
         ),
-        show_progress="hidden",
+        show_progress="minimal",
         inputs=[
             generation_section["captions"],
             generation_section["lyrics"],
@@ -309,7 +309,7 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
         fn=lambda caption, lyrics, bpm, duration, key_scale, time_sig, temp, top_k, top_p, debug, progress=gr.Progress(track_tqdm=True): gen_h.handle_format_lyrics(
             llm_handler, caption, lyrics, bpm, duration, key_scale, time_sig, temp, top_k, top_p, debug, progress=progress
         ),
-        show_progress="hidden",
+        show_progress="minimal",
         inputs=[
             generation_section["captions"],
             generation_section["lyrics"],
@@ -386,7 +386,7 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
         fn=lambda query, instrumental, vocal_lang, temp, top_k, top_p, debug, progress=gr.Progress(track_tqdm=True): gen_h.handle_create_sample(
             llm_handler, query, instrumental, vocal_lang, temp, top_k, top_p, debug, progress=progress
         ),
-        show_progress="hidden",
+        show_progress="minimal",
         inputs=[
             generation_section["simple_query_input"],
             generation_section["simple_instrumental_checkbox"],
@@ -668,7 +668,7 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
     # ========== Generation Handler ==========
     generation_section["generate_btn"].click(
         fn=res_h.clear_audio_outputs_for_new_generation,
-        show_progress="hidden",
+        show_progress="minimal",
         outputs=[
             results_section["generated_audio_1"],
             results_section["generated_audio_2"],
@@ -682,7 +682,7 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
         ],
     ).then(
         fn=generation_wrapper,
-        show_progress="hidden",
+        show_progress="minimal",
         inputs=[
             generation_section["captions"],
             generation_section["lyrics"],
@@ -799,7 +799,7 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
         ],
     ).then(
         fn=lambda *args, progress=gr.Progress(track_tqdm=True): res_h.generate_next_batch_background(dit_handler, llm_handler, *args, progress=progress),
-        show_progress="hidden",
+        show_progress="minimal",
         inputs=[
             generation_section["autogen_checkbox"],
             results_section["generation_params_state"],
@@ -990,7 +990,7 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
         ]
     ).then(
         fn=lambda *args, progress=gr.Progress(track_tqdm=True): res_h.generate_next_batch_background(dit_handler, llm_handler, *args, progress=progress),
-        show_progress="hidden",
+        show_progress="minimal",
         inputs=[
             generation_section["autogen_checkbox"],
             results_section["generation_params_state"],
@@ -1136,7 +1136,7 @@ def setup_training_event_handlers(demo, dit_handler, llm_handler, training_secti
         fn=lambda state, skip, fmt, trans, unlabeled, progress=gr.Progress(track_tqdm=True): train_h.auto_label_all(
             dit_handler, llm_handler, state, skip, fmt, trans, unlabeled, progress=progress
         ),
-        show_progress="hidden",
+        show_progress="minimal",
         inputs=[
             training_section["dataset_builder_state"],
             training_section["skip_metas"],
@@ -1324,7 +1324,7 @@ def setup_training_event_handlers(demo, dit_handler, llm_handler, training_secti
         fn=lambda output_dir, mode, state, progress=gr.Progress(track_tqdm=True): train_h.preprocess_dataset(
             output_dir, mode, dit_handler, state, progress=progress
         ),
-        show_progress="hidden",
+        show_progress="minimal",
         inputs=[
             training_section["preprocess_output_dir"],
             training_section["preprocess_mode"],

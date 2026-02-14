@@ -196,6 +196,11 @@ def create_gradio_interface(dit_handler, llm_handler, dataset_handler, init_para
             opacity: 1;
             transform: scale(1.15);
         }
+
+        /* Hide redundant progress bars inside components while keeping the top-level one */
+        .gr-form .progress-view, .gr-box .progress-view, .gr-accordion .progress-view {
+            display: none !important;
+        }
         """,
     ) as demo:
         

@@ -2174,6 +2174,7 @@ class LLMHandler:
             use_constrained_decoding: Whether to use FSM-based constrained decoding
             constrained_decoding_debug: Whether to enable debug logging for constrained decoding
             stop_at_reasoning: If True, stop generation immediately after </think> tag (no audio codes)
+            progress: Optional Gradio progress reporter
 
         Returns:
             (output_text, status_message)
